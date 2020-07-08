@@ -1,3 +1,10 @@
+# vosk media files and models
+src/vosk/models/**
+src/vosk/media/**
+*.wav
+*.mp3
+*.flac
+
 # Logs
 logs
 *.log
