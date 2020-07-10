@@ -2,22 +2,7 @@
 const hark = require('hark')
 const Recorder = require('./recorder')
 const recognize = require('./recognize')
-const { SPEECH_NAME_DEFAULT, SPEECH_ACTION_READY, convert } = require('./utils')
-
-// example use:
-// const keys = {
-// 	googleCloud: ['YOUR_KEY']
-// }
-
-// Recognizer({
-// 	keys, 
-// 	onSpeechRecognized: res => console.log('РЕЗУЛЬТАТ! ' + JSON.stringify(res)),
-// 	onSpeechStart: () => console.log('ГОВОРИТ!'),
-// 	onSpeechEnd: () => console.log('ЗАМОЛЧАЛ!')
-// })
-
-// todo: добавить возможность остановить прослушку
-
+const { SPEECH_NAME_DEFAULT, SPEECH_ACTION_READY } = require('./utils')
 
 function Recognizer({
 	ipcRenderer,
@@ -34,7 +19,10 @@ function Recognizer({
 		forced = true,
 		idleDelay = 5000,
 		harkOptions = {},
-		save = false
+		save = false,
+		languageCode = 'ru-RU',
+		gsFormat = false // if true, returns result in GoogleSpeech format
+		// for backward compatibility with solutions based on GoogleSpeech
 	} = options
 	// it's might be an issue with memory (global)
 	this._isSpeech2Text = isSpeech2Text
@@ -42,11 +30,17 @@ function Recognizer({
 	this._touched = false
 	this._recorder = { worker: false }
 	
+	const googleFormat = recognitionResult => {
+		const res = JSON.parse(recognitionResult)
+		return gsFormat
+			? {results:[{alternatives:[{transcript: res.text/*,confidence: 0.7914224863052368*/}],languageCode}]}
+			: res
+	}
+
 	ipcRenderer.on(SPEECH_ACTION_READY, async (e, savePath) => {
-		// console.log(SPEECH_ACTION_READY, savePath)
-		const recognitionResult = await recognize(savePath, 'ru-RU')
-		const res = convert(recognitionResult)
-		console.log(res)
+		const recognitionResult = await recognize(savePath, languageCode)
+		const res = googleFormat(recognitionResult)
+		// console.log(res)
 		onSpeechRecognized(res)
 	})
 
@@ -78,36 +72,28 @@ function Recognizer({
 		const stopRecording = () => {
 			restartIdleTimeout()
 			this._recorder.stop()
-			if(this._isSpeech2Text) this._recorder.exportWAV(googleSpeechRequest) // might be a bug
+			if(this._isSpeech2Text) this._recorder.exportWAV(speechPrepare) // might be a bug
 			this._recorder.clear() // иначе, запись склеивается
 		}
 
-		const speechSave = (results, buffer) => {
-			// ipcRenderer.send('speechSave')
-			let link = document.createElement('a')
-			const blob = new Blob([buffer], {type: 'audio/x-wav'})
-			link.href = URL.createObjectURL(blob)
-			// link.setAttribute("download", zipResults(results))
-			link.setAttribute("download", SPEECH_NAME_DEFAULT)
-			link.click()
-			URL.revokeObjectURL(link.href)
-		}
-
-		const googleSpeechRequest = blob => {
-			// const { googleCloud = [] } = apiKeys
-			// const [googleCloudKey] = googleCloud
+		const speechPrepare = blob => {
 			let reader = new FileReader()
 			reader.onload = async function() {
 				if (reader.readyState == 2) {
 					const buffer = reader.result
-					// const uint8Array = new Uint8Array(buffer)
-					// const recognitionResult = await recognize(uint8Array, googleCloudKey)
-					// onSpeechRecognized(recognitionResult, buffer)
-					// if(save) speechSave(recognitionResult, buffer)
 					speechSave('recognitionResult', buffer)
 				}
 			}
 			reader.readAsArrayBuffer(blob)
+		}
+
+		const speechSave = (results, buffer) => {
+			let link = document.createElement('a')
+			const blob = new Blob([buffer], {type: 'audio/x-wav'})
+			link.href = URL.createObjectURL(blob)
+			link.setAttribute("download", SPEECH_NAME_DEFAULT)
+			link.click()
+			URL.revokeObjectURL(link.href)
 		}
 
 		const forcedStartRecord = () => {
@@ -123,16 +109,9 @@ function Recognizer({
 			}
 		}
 		const beforeStopAll = () => {
-			// console.log('beforeStopAll', recorder.recording)
 			const isRecording = this._recorder.recording
 			const wasSpeech = this._touched
 			const isIdleWithotSpeech = !wasSpeech && isRecording
-			// если делать clearTimeout(this._idleTimeout) в stopListening то не надо
-			// const audioNodeAlreadyClosed = this._audioContext.state === 'closed'
-			// if(audioNodeAlreadyClosed){
-			// 	console.log('lol')
-			// 	return
-			// }
 			if(isIdleWithotSpeech){
 				return this.stopAll()
 			}
@@ -145,7 +124,6 @@ function Recognizer({
 
 		onAllStart()
 		forcedStartRecord()
-		// this.startIdleTimeout()
 		restartIdleTimeout()
 	}
 
@@ -155,9 +133,9 @@ function Recognizer({
 		})
 	}
 	this.stopListening = async () => {
-		// console.log('stopListening', this._audioContext.state)
 		clearTimeout(this._idleTimeout)
-		if(this._audioContext.state !== 'closed'){ // по сути недостижимо, ибо чистим idleTimeout
+		if(this._audioContext.state !== 'closed'){
+			// по сути недостижимо, ибо чистим idleTimeout
 			this.Stream.getTracks()[0].stop()
 			await this._audioContext.close()
 		}
@@ -178,7 +156,8 @@ function Recognizer({
 		onAllStop()
 	}
 	this.startAll = async () => {
-		await this.stopAll() // во избежание дублирования
+		// во избежание дублирования
+		await this.stopAll()
 		this.startRecognize()
 		this.startListening()
 	}

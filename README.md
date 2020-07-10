@@ -22,7 +22,11 @@ const Rec = new Recognizer({
 		isSpeech2Text = true,
 		autoInit = true,
 		forced = true, // forced start recording
-		vad = {} // pass options to vad function
+		idleDelay = 5000,
+		languageCode = 'ru-RU',
+		harkOptions = {},
+		gsFormat = false // if true, returns result in GoogleSpeech format
+		// for backward compatibility with solutions based on GoogleSpeech
 	}
 })
 

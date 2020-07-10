@@ -82,21 +82,4 @@ function speechSaverHandler(projectPath, e, item, webContents){
     }
 }
 
-function convert(recognitionResult){
-    const res = JSON.parse(recognitionResult)
-    return {
-        results:[
-            {
-                alternatives:[
-                    {
-                        transcript: res.text,
-                        // confidence: 0.7914224863052368
-                    }
-                ],
-                languageCode:"ru-ru"
-            }
-        ]
-    }
-}
-
-module.exports = { zipResults, unzipResults, isCorrectFilename, speechSaverHandler, SPEECH_NAME_DEFAULT, SPEECH_ACTION_READY, convert }
+module.exports = { zipResults, unzipResults, isCorrectFilename, speechSaverHandler, SPEECH_NAME_DEFAULT, SPEECH_ACTION_READY }
