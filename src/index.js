@@ -104,7 +104,7 @@ function Recognizer({
 					// const recognitionResult = await recognize(uint8Array, googleCloudKey)
 					// onSpeechRecognized(recognitionResult, buffer)
 					// if(save) speechSave(recognitionResult, buffer)
-					if(save) speechSave('recognitionResult', buffer)
+					speechSave('recognitionResult', buffer)
 				}
 			}
 			reader.readAsArrayBuffer(blob)
