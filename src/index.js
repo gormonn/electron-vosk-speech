@@ -1,104 +1,191 @@
 'use strict'
-// Copyright 2020 Google LLC
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+const hark = require('hark')
+const Recorder = require('./recorder')
+const recognize = require('./recognize')
+const { SPEECH_NAME_DEFAULT, SPEECH_ACTION_READY, convert } = require('./utils')
 
-// Never use API keys in applications where users can access the source code
-// (e.g. in websites). Use OAuth2Client instead. This example is for specific
-// use case (kiosk where users have no source access).
-// Details here: https://github.com/googleapis/nodejs-speech/issues/547
-// For more information about API keys, please visit
-// https://cloud.google.com/docs/authentication/api-keys
-
-const speech = require('@google-cloud/speech');
-const { GoogleAuth } = require('google-auth-library');
-// const Speech = require('./gs/build/src');
-
-async function recognize(
-  content,
-  apiKey,
-  languageCode = 'ru-RU',
-  onData = data => console.log({data})
-){
-  const googleAuth = new GoogleAuth();
-  const auth = googleAuth.fromAPIKey(apiKey)
-  const client = new speech.v1p1beta1.SpeechClient({auth});
-  // const client = new Speech.v1p1beta1.SpeechClient({
-  //   auth,
-  //   fallback: true
-  // })
-  const audio = {
-    content
-  };
-  const config = {
-    encoding: 'LINEAR16',
-    languageCode // 'en-US'
-  };
-  const request = {
-    audio,
-    config,
-    interimResults: true,  // возврат промежуточных результатов распознавания
-    singleUtterance: true   // непрерывность распознавания из стрима (пауза не сработает из файла)
-  };
-
-  const [response] = await client.recognize(request);
-  return response
-  
-  // const recognizeStream = client.streamingRecognize(request)
-  //   .on('error', console.error)
-  //   .on('data', data => console.log('recognizeStream', data))
-  // return recognizeStream
-
-  // Create a recognize stream
-  // const recognizeStream = client
-  //   .streamingRecognize(request)
-  //   .on('error', console.error)
-  //   .on('data', onData);
-}
-
-module.exports = {recognize};
-
-// class Speech{
-//   construnctor(API_KEY, language = 'ru-RU'){
-//     this.apiKey = API_KEY
-//     this.languageCode = language // en-US
-//   }
-//   init(apiKey){
-//     // const { apiKey } = this
-//     const googleAuth = new GoogleAuth();
-//     this.auth = googleAuth.fromAPIKey(apiKey);
-//     console.log({apiKey, auth: this.auth})
-//   }
-//   async recognize(content){
-//     const { auth, languageCode } = this
-//     // const { apiKey, languageCode } = this
-//     // const googleAuth = new GoogleAuth();
-//     // const auth = googleAuth.fromAPIKey(apiKey);
-//     const client = new speech.v1p1beta1.SpeechClient({auth});
-//     const audio = {
-//       content
-//     };
-//     const config = {
-//       encoding: 'LINEAR16',
-//       languageCode
-//     };
-//     const request = {
-//       audio,
-//       config,
-//     };
-//     const [response] = await client.recognize(request);
-//     return response;
-//   }
+// example use:
+// const keys = {
+// 	googleCloud: ['YOUR_KEY']
 // }
 
-// module.exports = Speech
+// Recognizer({
+// 	keys, 
+// 	onSpeechRecognized: res => console.log('РЕЗУЛЬТАТ! ' + JSON.stringify(res)),
+// 	onSpeechStart: () => console.log('ГОВОРИТ!'),
+// 	onSpeechEnd: () => console.log('ЗАМОЛЧАЛ!')
+// })
+
+// todo: добавить возможность остановить прослушку
+
+
+function Recognizer({
+	ipcRenderer,
+	onSpeechStart = () => console.log('voice_start'),
+	onSpeechEnd = () => console.log('voice_stop'),
+	onSpeechRecognized = res => console.log('onSpeechRecognized', res),
+	onAllStart = () => console.log('onAllStart'),
+	onAllStop = () => console.log('onAllStop'),
+	options = {}
+}){
+	const {
+		isSpeech2Text = true,
+		autoInit = true,
+		forced = true,
+		idleDelay = 5000,
+		harkOptions = {},
+		save = false
+	} = options
+	// it's might be an issue with memory (global)
+	this._isSpeech2Text = isSpeech2Text
+	this._idleTimeout = null
+	this._touched = false
+	this._recorder = { worker: false }
+	
+	ipcRenderer.on(SPEECH_ACTION_READY, async (e, savePath) => {
+		// console.log(SPEECH_ACTION_READY, savePath)
+		const recognitionResult = await recognize(savePath, 'ru-RU')
+		const res = convert(recognitionResult)
+		console.log(res)
+		onSpeechRecognized(res)
+	})
+
+	const mediaListener = stream => {
+		this.Stream = stream
+		const speechEvents = hark(stream, harkOptions)
+
+		this._audioContext = new AudioContext({sampleRate: 16000});
+		const source = this._audioContext.createMediaStreamSource(stream)		
+		this._recorder = new Recorder(source, {numChannels: 1})
+
+		const onVoiceStart = () => {
+			this._touched = true
+			startRecording()
+			onSpeechStart()
+		}
+		const onVoiceEnd = () => {
+			stopRecording()
+			onSpeechEnd()
+		}
+
+		// не понятно надо отвязывать или нет (автоматическая сборка мусора, не?)
+		speechEvents.on('speaking', onVoiceStart)
+		speechEvents.on('stopped_speaking', onVoiceEnd)
+
+		const startRecording = () => {
+			if(this._isSpeech2Text) this._recorder.record()
+		}
+		const stopRecording = () => {
+			restartIdleTimeout()
+			this._recorder.stop()
+			if(this._isSpeech2Text) this._recorder.exportWAV(googleSpeechRequest) // might be a bug
+			this._recorder.clear() // иначе, запись склеивается
+		}
+
+		const speechSave = (results, buffer) => {
+			// ipcRenderer.send('speechSave')
+			let link = document.createElement('a')
+			const blob = new Blob([buffer], {type: 'audio/x-wav'})
+			link.href = URL.createObjectURL(blob)
+			// link.setAttribute("download", zipResults(results))
+			link.setAttribute("download", SPEECH_NAME_DEFAULT)
+			link.click()
+			URL.revokeObjectURL(link.href)
+		}
+
+		const googleSpeechRequest = blob => {
+			// const { googleCloud = [] } = apiKeys
+			// const [googleCloudKey] = googleCloud
+			let reader = new FileReader()
+			reader.onload = async function() {
+				if (reader.readyState == 2) {
+					const buffer = reader.result
+					// const uint8Array = new Uint8Array(buffer)
+					// const recognitionResult = await recognize(uint8Array, googleCloudKey)
+					// onSpeechRecognized(recognitionResult, buffer)
+					// if(save) speechSave(recognitionResult, buffer)
+					if(save) speechSave('recognitionResult', buffer)
+				}
+			}
+			reader.readAsArrayBuffer(blob)
+		}
+
+		const forcedStartRecord = () => {
+			if(forced){
+				startRecording()
+			}
+		}
+
+		const restartIdleTimeout = () => {
+			clearTimeout(this._idleTimeout)
+			if(idleDelay){
+				this._idleTimeout = setTimeout(beforeStopAll, idleDelay)
+			}
+		}
+		const beforeStopAll = () => {
+			// console.log('beforeStopAll', recorder.recording)
+			const isRecording = this._recorder.recording
+			const wasSpeech = this._touched
+			const isIdleWithotSpeech = !wasSpeech && isRecording
+			// если делать clearTimeout(this._idleTimeout) в stopListening то не надо
+			// const audioNodeAlreadyClosed = this._audioContext.state === 'closed'
+			// if(audioNodeAlreadyClosed){
+			// 	console.log('lol')
+			// 	return
+			// }
+			if(isIdleWithotSpeech){
+				return this.stopAll()
+			}
+			if(isRecording){
+				return restartIdleTimeout()
+			}else{
+				return this.stopAll()
+			}
+		}
+
+		onAllStart()
+		forcedStartRecord()
+		// this.startIdleTimeout()
+		restartIdleTimeout()
+	}
+
+	this.startListening = () => {
+		navigator.getUserMedia({audio: true}, mediaListener, err => {
+			console.error("No live audio input in this browser: " + err)
+		})
+	}
+	this.stopListening = async () => {
+		// console.log('stopListening', this._audioContext.state)
+		clearTimeout(this._idleTimeout)
+		if(this._audioContext.state !== 'closed'){ // по сути недостижимо, ибо чистим idleTimeout
+			this.Stream.getTracks()[0].stop()
+			await this._audioContext.close()
+		}
+	}
+	
+	this.stopRecognize = () => {
+		this._isSpeech2Text = false
+	}
+	this.startRecognize = () => {
+		this._isSpeech2Text = true
+	}
+
+	this.stopAll = async () => {
+		// не понятно, останавливается ли запись
+		this.stopRecognize()
+		await this.stopListening()
+		if(this._recorder.worker) this._recorder.worker.terminate()
+		onAllStop()
+	}
+	this.startAll = async () => {
+		await this.stopAll() // во избежание дублирования
+		this.startRecognize()
+		this.startListening()
+	}
+	
+	if(autoInit){
+		this.startListening()
+	}
+}
+
+module.exports = {Recognizer, Recorder, recognize}

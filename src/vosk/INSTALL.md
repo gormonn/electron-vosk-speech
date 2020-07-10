@@ -20,7 +20,7 @@ example:
 sh _model_loader.sh https://alphacephei.com/vosk/models/vosk-model-small-ru-0.4.zip ru-small
 
 #download and save model to models/ru-big
-sh _model_loader.sh https://alphacephei.com/vosk/models/vosk-model-ru-0.10.zip ru-big
+sh _model_loader.sh https://alphacephei.com/vosk/models/vosk-model-ru-0.10.zip ru-RU
 
 #download and save model to models/model
 sh _model_loader.sh https://alphacephei.com/vosk/models/vosk-model-ru-0.10.zip
