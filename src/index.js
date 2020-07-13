@@ -20,7 +20,7 @@ function Recognizer({
 		idleDelay = 5000,
 		harkOptions = {},
 		save = false,
-		languageCode = 'ru-RU',
+		languageCode = 'ru',
 		gsFormat = false // if true, returns result in GoogleSpeech format
 		// for backward compatibility with solutions based on GoogleSpeech
 	} = options
