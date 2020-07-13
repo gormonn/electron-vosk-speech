@@ -13,16 +13,16 @@ For example:
 ```
 #download and save model to models/ru-small
 cd node_modules/electron-vosk-speech/src/vosk
-sh _model_loader.sh https://alphacephei.com/vosk/models/vosk-model-small-ru-0.4.zip ru-Ru
+sh _model_loader.sh https://alphacephei.com/vosk/models/vosk-model-small-ru-0.4.zip ru
 ```
 
 Or:
 ```
 # download and save big russian model to models/ru-Ru
-# then ru-Ru are used as languageCode in the options of Recognizer class
+# then "ru" are used as languageCode in the options of Recognizer class
 # so, you can download any models, and use it
 cd node_modules/electron-vosk-speech/src/vosk
-sh _model_loader.sh https://alphacephei.com/vosk/models/vosk-model-ru-0.10.zip ru-RU
+sh _model_loader.sh https://alphacephei.com/vosk/models/vosk-model-ru-0.10.zip ru
 ```
 You can find list of vosk pretrained models [here](https://alphacephei.com/vosk/models.html).
 
@@ -44,7 +44,7 @@ const Rec = new Recognizer({
 		autoInit = true,
 		forced = true, // forced start recording
 		idleDelay = 5000,
-		languageCode = 'ru-RU',
+		languageCode = 'ru',
 		harkOptions = {},
 		gsFormat = false // if true, returns result in GoogleSpeech format
 		// for backward compatibility with solutions based on GoogleSpeech
