@@ -6,7 +6,11 @@ Requirements: Python 3.8
 1. Install:
 `yarn add electron-vosk-speech`
 To install python, read [this](https://realpython.com/installing-python/) guide.
-`pip3 install vosk`
+```
+sudo apt-get update
+sudo apt-get install python3.8
+pip3 install vosk
+```
 
 2. Then, you need to download vosk's speech model:
 For example:

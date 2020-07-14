@@ -37,14 +37,7 @@ function Recognizer({
 			: res
 	}
 
-	ipcRenderer.on(SPEECH_ACTION_READY, async (e, savePath) => {
-		const recognitionResult = await recognize(savePath, languageCode)
-		const res = googleFormat(recognitionResult)
-		// console.log(res)
-		onSpeechRecognized(res)
-	})
-
-	const mediaListener = stream => {
+	const mediaListener = (stream) => {
 		this.Stream = stream
 		const speechEvents = hark(stream, harkOptions)
 
@@ -128,7 +121,12 @@ function Recognizer({
 	}
 
 	this.startListening = () => {
-		navigator.getUserMedia({audio: true}, mediaListener, err => {
+		ipcRenderer.on(SPEECH_ACTION_READY, async (e, savePath) => {
+			const recognitionResult = await recognize(savePath, languageCode)
+			const res = recognitionResult !== '' ? googleFormat(recognitionResult) : recognitionResult
+			onSpeechRecognized(res)
+		})
+		navigator.getUserMedia({audio: true}, stream => mediaListener(stream), err => {
 			console.error("No live audio input in this browser: " + err)
 		})
 	}
@@ -153,6 +151,7 @@ function Recognizer({
 		this.stopRecognize()
 		await this.stopListening()
 		if(this._recorder.worker) this._recorder.worker.terminate()
+		ipcRenderer.removeAllListeners(SPEECH_ACTION_READY)
 		onAllStop()
 	}
 	this.startAll = async () => {
