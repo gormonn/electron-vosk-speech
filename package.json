@@ -11,8 +11,8 @@
     "electron"
   ],
   "scripts": {
-    "postinstall": "cd src/vosk/scripts && sh dl_models.sh",
-    "postuninstall": "cd src/vosk/scripts && sh rm_models.sh"
+    "postinstall": "cd scripts && sh dl_models.sh",
+    "postuninstall": "cd scripts && sh rm_models.sh"
   },
   "contributors": [
     "Dmitriy Aleksandrovich Chernukho <wfuzerbar@gmail.com> (https://github.com/gormonn)"
