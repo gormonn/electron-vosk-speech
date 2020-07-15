@@ -5,7 +5,7 @@ const fs   = require('fs');
 
 function getModelPath(key){
     try {
-        const models = yaml.safeLoad(fs.readFileSync('./vosk/models.yaml', 'utf8'))
+        const models = yaml.safeLoad(fs.readFileSync(`${__dirname}/vosk/models.yaml`, 'utf8'))
         if(models.done){
             return models.hasOwnProperty(key) ? models[key] : false
         }else{
