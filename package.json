@@ -1,7 +1,7 @@
 {
   "license": "ISC",
   "name": "electron-vosk-speech",
-  "version": "0.0.7",
+  "version": "0.0.9",
   "description": "Lightweight Speech Recognition Library for Electron. Based on [nodejs-speech-kiosk-usercase](https://www.npmjs.com/package/nodejs-speech-kiosk-usercase) and [vosk-api](https://github.com/alphacep/vosk-api).",
   "main": "src/index.js",
   "keywords": [
@@ -11,6 +11,7 @@
     "electron"
   ],
   "scripts": {
+    "preinstall": "sudo apt-get update && sudo apt-get install python3.8 && pip3 install vosk",
     "postinstall": "cd scripts && sh dl_models.sh",
     "postuninstall": "cd scripts && sh rm_models.sh"
   },
