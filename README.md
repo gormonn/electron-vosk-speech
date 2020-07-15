@@ -4,7 +4,10 @@ Lightweight Speech Recognition Library for Electron. Based on nodejs-speech-kios
 Requirements: Python 3.8
 
 1. Install:
+`npm install -g grunt-cli`
+
 `yarn add electron-vosk-speech`
+
 To install python, read [this](https://realpython.com/installing-python/) guide.
 ```
 sudo apt-get update

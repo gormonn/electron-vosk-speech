@@ -1,7 +1,7 @@
 {
   "license": "ISC",
   "name": "electron-vosk-speech",
-  "version": "0.0.2",
+  "version": "0.0.5",
   "description": "Lightweight Speech Recognition Library for Electron. Based on [nodejs-speech-kiosk-usercase](https://www.npmjs.com/package/nodejs-speech-kiosk-usercase) and [vosk-api](https://github.com/alphacep/vosk-api).",
   "main": "src/index.js",
   "keywords": [
@@ -10,6 +10,10 @@
     "speech",
     "electron"
   ],
+  "scripts": {
+    "postinstall": "cd src/vosk/scripts && sh dl_models.sh",
+    "postuninstall": "cd src/vosk/scripts && sh rm_models.sh"
+  },
   "contributors": [
     "Dmitriy Aleksandrovich Chernukho <wfuzerbar@gmail.com> (https://github.com/gormonn)"
   ],
@@ -24,7 +28,11 @@
   "homepage": "https://github.com/gormonn/electron-vosk-speech#readme",
   "dependencies": {
     "await-spawn": "^3.0.0",
+    "chalk": "^4.1.0",
+    "cli-select": "^1.1.2",
+    "commander": "^5.1.0",
     "hark": "^1.2.3",
-    "inline-worker": "^1.1.0"
+    "inline-worker": "^1.1.0",
+    "js-yaml": "^3.14.0"
   }
 }

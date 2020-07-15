@@ -72,9 +72,13 @@ function Recognizer({
 		const speechPrepare = blob => {
 			let reader = new FileReader()
 			reader.onload = async function() {
-				if (reader.readyState == 2) {
-					const buffer = reader.result
-					speechSave('recognitionResult', buffer)
+				try{
+					if (reader.readyState == 2) {
+						const buffer = reader.result
+						speechSave('recognitionResult', buffer)
+					}
+				}catch(e){
+					console.error(e)
 				}
 			}
 			reader.readAsArrayBuffer(blob)
@@ -122,20 +126,28 @@ function Recognizer({
 
 	this.startListening = () => {
 		ipcRenderer.on(SPEECH_ACTION_READY, async (e, savePath) => {
-			const recognitionResult = await recognize(savePath, languageCode)
-			const res = recognitionResult !== '' ? googleFormat(recognitionResult) : recognitionResult
-			onSpeechRecognized(res)
+			try{
+				const recognitionResult = await recognize(savePath, languageCode)
+				const res = recognitionResult !== '' ? googleFormat(recognitionResult) : recognitionResult
+				onSpeechRecognized(res)
+			}catch(e){
+				console.error(e)
+			}
 		})
 		navigator.getUserMedia({audio: true}, stream => mediaListener(stream), err => {
 			console.error("No live audio input in this browser: " + err)
 		})
 	}
 	this.stopListening = async () => {
-		clearTimeout(this._idleTimeout)
-		if(this._audioContext.state !== 'closed'){
-			// по сути недостижимо, ибо чистим idleTimeout
-			this.Stream.getTracks()[0].stop()
-			await this._audioContext.close()
+		try{
+			clearTimeout(this._idleTimeout)
+			if(this._audioContext.state !== 'closed'){
+				// по сути недостижимо, ибо чистим idleTimeout
+				this.Stream.getTracks()[0].stop()
+				await this._audioContext.close()
+			}
+		}catch(e){
+			console.error(e)
 		}
 	}
 	
@@ -147,18 +159,26 @@ function Recognizer({
 	}
 
 	this.stopAll = async () => {
-		// не понятно, останавливается ли запись
-		this.stopRecognize()
-		await this.stopListening()
-		if(this._recorder.worker) this._recorder.worker.terminate()
-		ipcRenderer.removeAllListeners(SPEECH_ACTION_READY)
-		onAllStop()
+		try{
+			// не понятно, останавливается ли запись
+			this.stopRecognize()
+			await this.stopListening()
+			if(this._recorder.worker) this._recorder.worker.terminate()
+			ipcRenderer.removeAllListeners(SPEECH_ACTION_READY)
+			onAllStop()
+		}catch(e){
+			console.error(e)
+		}
 	}
 	this.startAll = async () => {
-		// во избежание дублирования
-		await this.stopAll()
-		this.startRecognize()
-		this.startListening()
+		try{
+			// во избежание дублирования
+			await this.stopAll()
+			this.startRecognize()
+			this.startListening()
+		}catch(e){
+			console.error(e)
+		}
 	}
 	
 	if(autoInit){

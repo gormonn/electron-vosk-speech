@@ -6,14 +6,14 @@ name="${file%.*}"
 # echo $file
 # echo $name
 
-if [ -z $2 ];
-# empty name
-then modelfoldername="models/model"
-else modelfoldername="models/${2}"
-fi
+# ubuntu
+modelfolder="${HOME}/vosk-api/models"
 
-# rm model --dir
 wget $url
 unzip $name
-mv $name $modelfoldername
+mkdir --parents $modelfolder
+mv $name $modelfolder
+mv "${modelfolder}/${name}" "${modelfolder}/${2}"
 rm $file
+
+echo "${2}: ${modelfolder}/${2}" >> 'config.yaml'
