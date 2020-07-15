@@ -1,13 +1,11 @@
 'use-strict'
 const spawn = require('await-spawn')
-const yaml = require('js-yaml');
-const fs   = require('fs');
+const models = require('./models')
 
 function getModelPath(key){
     try {
-        const models = yaml.safeLoad(fs.readFileSync(`${__dirname}/vosk/models.yaml`, 'utf8'))
         if(models.done){
-            return models.hasOwnProperty(key) ? models[key] : false
+            return models.paths.hasOwnProperty(key) ? models.paths[key] : false
         }else{
             throw new Error('recognize: Before using speech recognition, you must download the model!')
         }
@@ -22,13 +20,14 @@ function getModelPath(key){
 //     console.log(r)
 // })()
 
-async function recognize(speechPath, lang, voskPath = 'node_modules/electron-vosk-speech/src/vosk'){
+async function recognize(speechPath, lang){
     try{
         // console.log(__dirname,{args})
         // const args = [`${voskPath}/test_simple.py`, speechPath, `${voskPath}/models/${lang}`]
         const pathToModel = getModelPath(lang)
+        const pathToScript = `${__dirname}/vosk/test_simple.py`
         if(pathToModel && speechPath){
-            const args = [`${__dirname}/vosk/test_simple.py`, speechPath, pathToModel]
+            const args = [pathToScript, speechPath, pathToModel]
             console.log({args: args.join(' ')})
             const res = await spawn('python3', args)
             return res.toString()

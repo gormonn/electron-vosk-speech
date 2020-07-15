@@ -1,4 +1,5 @@
 'use-strict'
+
 const SPEECH_NAME_DEFAULT = 'speech'
 const SPEECH_ACTION_READY = 'SPEECH_ACTION_READY'
 const SPEECH_DATA_SEPARATOR = '___SDS___'

@@ -16,4 +16,4 @@ mv $name $modelfolder
 mv "${modelfolder}/${name}" "${modelfolder}/${2}"
 rm $file
 
-echo "${2}: ${modelfolder}/${2}" >> 'config.yaml'
+echo "${2}: ${modelfolder}/${2}" >> 'models.yaml'
