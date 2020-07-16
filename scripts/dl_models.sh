@@ -1,6 +1,8 @@
-echo "Type yours base url to download ASR models, or ignore this to download models from alphacephei.com, followed by [ENTER]:"
-read url
-base_url=${url:-http://alphacephei.com/vosk/models}| tr -d '\r'
+# echo "Type yours base url to download ASR models, or ignore this to download models from alphacephei.com, followed by [ENTER]:"
+# read url
+# base_url=${url:-http://alphacephei.com/vosk/models}| tr -d '\r'
+
+base_url='http://alphacephei.com/vosk/models'
 
 # echo "Type languages"
 
