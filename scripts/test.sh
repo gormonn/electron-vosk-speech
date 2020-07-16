@@ -1,10 +1,16 @@
 #!/bin/bash
-whiptail --title "Download language models" --checklist \
-"Choose language models" 20 78 4 \
-"ru" "Allow connections to other hosts" ON \
-"NET_INBOUND" "Allow connections from other hosts" OFF \
-"LOCAL_MOUNT" "Allow mounting of local devices" OFF \
-"REMOTE_MOUNT" "Allow mounting of remote devices" OFF
+echo "Type yours base url to download ASR models, or ignore this to download models from alphacephei.com, followed by [ENTER]:"
+read url
+base_url=${url:-http://alphacephei.com/vosk/models}
+
+sh _model_loader.sh $base_url/vosk-model-small-en-us-0.3.zip en
+
+# whiptail --title "Download language models" --checklist \
+# "Choose language models" 20 78 4 \
+# "ru" "Allow connections to other hosts" ON \
+# "NET_INBOUND" "Allow connections from other hosts" OFF \
+# "LOCAL_MOUNT" "Allow mounting of local devices" OFF \
+# "REMOTE_MOUNT" "Allow mounting of remote devices" OFF
 
 # cmd=(dialog --separate-output --checklist "Select options:" 22 76 16)
 # options=(1 "Option 1" off    # any option can be set to default to "on"
