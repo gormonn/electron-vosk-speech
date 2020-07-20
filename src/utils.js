@@ -108,6 +108,9 @@ function connect2Vosk(webContents, voskSpeechSaver){
         webContents.session.removeAllListeners('will-download')
         connect2Vosk(webContents, voskSpeechSaver)
     })
+    ws.on('error', function(e) {
+        console.error("WS Error: " + e.toString());
+    })
 }
 
 // (async()=>{
