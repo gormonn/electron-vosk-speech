@@ -30,14 +30,11 @@ function Recognizer({
 	this._touched = false
 	this._recorder = { worker: false }
 	
-	const googleFormat = data => {
-		const res = JSON.parse(data)
+	const recognitionResult = res => {
 		return gsFormat
-			? {results:[{alternatives:[{transcript: res.text/*,confidence: 0.7914224863052368*/}],languageCode}]}
+			? {results:[{alternatives:[{transcript: res.text /*,confidence: 0.7914224863052368*/}],languageCode}]}
 			: res
 	}
-
-	const recognitionResult = data => data !== '' ? googleFormat(data) : data
 
 	const mediaListener = (stream) => {
 		this.Stream = stream
@@ -136,8 +133,9 @@ function Recognizer({
 		// 		console.error(e)
 		// 	}
 		// })
-		ipcRenderer.on(SPEECH_ACTION_DATA, (e, data) => {
-			if(data.length > 20){
+		ipcRenderer.on(SPEECH_ACTION_DATA, (e, json) => {
+			const data = JSON.parse(json)
+			if(data.hasOwnProperty('result') && data.hasOwnProperty('text')){
 				const res = recognitionResult(data)
 				onSpeechRecognized(res)
 			}
