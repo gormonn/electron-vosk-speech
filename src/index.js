@@ -1,8 +1,8 @@
 'use strict'
 const hark = require('hark')
 const Recorder = require('./recorder')
-const recognize = require('./recognize')
-const { SPEECH_NAME_DEFAULT, SPEECH_ACTION_READY } = require('./utils')
+// const recognize = require('./recognize')
+const { SPEECH_NAME_DEFAULT, SPEECH_ACTION_READY, SPEECH_ACTION_DATA } = require('./utils')
 
 function Recognizer({
 	ipcRenderer,
@@ -30,18 +30,20 @@ function Recognizer({
 	this._touched = false
 	this._recorder = { worker: false }
 	
-	const googleFormat = recognitionResult => {
-		const res = JSON.parse(recognitionResult)
+	const googleFormat = data => {
+		const res = JSON.parse(data)
 		return gsFormat
 			? {results:[{alternatives:[{transcript: res.text/*,confidence: 0.7914224863052368*/}],languageCode}]}
 			: res
 	}
 
+	const recognitionResult = data => data !== '' ? googleFormat(data) : data
+
 	const mediaListener = (stream) => {
 		this.Stream = stream
 		const speechEvents = hark(stream, harkOptions)
 
-		this._audioContext = new AudioContext({sampleRate: 16000});
+		this._audioContext = new AudioContext({sampleRate: 8000});
 		const source = this._audioContext.createMediaStreamSource(stream)		
 		this._recorder = new Recorder(source, {numChannels: 1})
 
@@ -125,13 +127,19 @@ function Recognizer({
 	}
 
 	this.startListening = () => {
-		ipcRenderer.on(SPEECH_ACTION_READY, async (e, savePath) => {
-			try{
-				const recognitionResult = await recognize(savePath, languageCode)
-				const res = recognitionResult !== '' ? googleFormat(recognitionResult) : recognitionResult
+		// ipcRenderer.on(SPEECH_ACTION_READY, async (e, savePath) => {
+		// 	try{
+		// 		const data = await recognize(savePath, languageCode)
+		// 		const res = recognitionResult(data)
+		// 		onSpeechRecognized(res)
+		// 	}catch(e){
+		// 		console.error(e)
+		// 	}
+		// })
+		ipcRenderer.on(SPEECH_ACTION_DATA, (e, data) => {
+			if(data.length > 20){
+				const res = recognitionResult(data)
 				onSpeechRecognized(res)
-			}catch(e){
-				console.error(e)
 			}
 		})
 		navigator.getUserMedia({audio: true}, stream => mediaListener(stream), err => {
@@ -164,7 +172,8 @@ function Recognizer({
 			this.stopRecognize()
 			await this.stopListening()
 			if(this._recorder.worker) this._recorder.worker.terminate()
-			ipcRenderer.removeAllListeners(SPEECH_ACTION_READY)
+			// ipcRenderer.removeAllListeners(SPEECH_ACTION_READY)
+			ipcRenderer.removeAllListeners(SPEECH_ACTION_DATA)
 			onAllStop()
 		}catch(e){
 			console.error(e)
@@ -186,4 +195,8 @@ function Recognizer({
 	}
 }
 
-module.exports = {Recognizer, Recorder, recognize}
+module.exports = {
+	Recognizer,
+	Recorder,
+	// recognize
+}

@@ -2,6 +2,7 @@
 
 const SPEECH_NAME_DEFAULT = 'speech'
 const SPEECH_ACTION_READY = 'SPEECH_ACTION_READY'
+const SPEECH_ACTION_DATA = 'SPEECH_ACTION_DATA'
 const SPEECH_DATA_SEPARATOR = '___SDS___'
 const SPEECH_GOOGLE_RESULT_SEPARATOR = '___GRS___'
 const SPEECH_SAVE_PATH = '/tmp/speech/'
@@ -63,7 +64,8 @@ const setMetadata = (savePath, [title, comment], cb = setMetadataCallback) => {
     ffmetadata.write(savePath, {title, comment}, cb)
 }
 
-function speechSaverHandler(projectPath, e, item, webContents){
+function speechSaverHandler(projectPath, ws, e, item){
+    const fs = require('fs')
     const fileName = item.getFilename()
     if(isCorrectFilename(fileName)){
         const savePath = `${projectPath + SPEECH_SAVE_PATH + fileName}.wav`
@@ -71,7 +73,14 @@ function speechSaverHandler(projectPath, e, item, webContents){
             item.setSavePath(savePath)
             item.once('done', (event, state) => {
                 if (state === 'completed') {
-                    webContents.send(SPEECH_ACTION_READY, savePath)              
+                    // webContents.send(SPEECH_ACTION_READY, savePath)
+                    const readStream = fs.createReadStream(savePath)
+                    readStream.on('data', function (chunk) {
+                        ws.send(chunk)
+                    })
+                    readStream.on('end', function () {
+                        ws.send('{"eof" : 1}')
+                    })
                 } else {
                     console.log(`Download failed: ${state}`)
                 }
@@ -83,4 +92,39 @@ function speechSaverHandler(projectPath, e, item, webContents){
     }
 }
 
-module.exports = { zipResults, unzipResults, isCorrectFilename, speechSaverHandler, SPEECH_NAME_DEFAULT, SPEECH_ACTION_READY }
+function connect2Vosk(webContents, voskSpeechSaver){
+    const websocket = require('ws')
+    let ws = new websocket('ws://0.0.0.0:2700/asr/ru/')
+    ws.on('open', function open() {
+        console.log('VOSK-API: Waiting to response...')
+        voskSpeechSaver(webContents, ws)
+    })
+    ws.on('message', function incoming(data) {
+        webContents.send(SPEECH_ACTION_DATA, data)
+    })
+    ws.on('close', function close() {
+        // harcode:
+        // т.к. сервер закрывает соединение, обходим пока так:
+        webContents.session.removeAllListeners('will-download')
+        connect2Vosk(webContents, voskSpeechSaver)
+    })
+}
+
+// (async()=>{
+//     voskSocket()
+// })()
+
+// Example use:
+// const {speechSaverHandler, connect2Vosk } = require('electron-vosk-speech/src/utils')
+// connect2Vosk(win.webContents, () => {
+//     win.webContents.session.on('will-download', function voskSpeechSaver(...rest){
+//         speechSaverHandler(app.getAppPath(), ...rest) // for new version
+//     })
+// })
+
+module.exports = {
+    // voskSocket,
+    connect2Vosk,
+    zipResults, unzipResults, isCorrectFilename, speechSaverHandler,
+    SPEECH_NAME_DEFAULT, SPEECH_ACTION_READY, SPEECH_ACTION_DATA
+}

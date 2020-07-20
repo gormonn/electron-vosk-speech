@@ -1,1 +1,1 @@
-module.exports = {"done":true}
+module.exports = {"list":["en","ru"],"paths":{"en":"/home/dimon/vosk-api/models/en","ru":"/home/dimon/vosk-api/models/ru"},"done":true}

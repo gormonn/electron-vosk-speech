@@ -7,14 +7,39 @@ Requirements: Python 3.8
 
 `yarn add electron-vosk-speech`
 
-To install python, read [this](https://realpython.com/installing-python/) guide.
+Then you need to install [docker](https://docs.docker.com/get-docker/).
+
+Run vosk-api local server:
+`sudo docker run -p 2700:2700 alphacep/kaldi-ru:latest`
+
+
+<!-- To install python, read [this](https://realpython.com/installing-python/) guide.
 ```
 sudo apt-get update
 sudo apt-get install python3.8
 pip3 install vosk
+``` -->
+<!-- 
+Before build duckling you need to install [haskell](https://www.fpcomplete.com/haskell/get-started/)
+Then:
 ```
+sudo apt-get update
+sudo apt-get install libpcre3 libpcre3-dev
+cd duckling
+stack build
+```
+Run duckling server:
+```
+stack exec duckling-example-exe
+```
+The first time you run it, it will download all required packages.
 
-2. Then, you need to download vosk's speech model:
+This runs a basic HTTP server. Example request:
+```
+$ curl -XPOST http://0.0.0.0:8000/parse --data 'locale=en_GB&text=tomorrow at eight'
+``` -->
+
+<!-- 2. Then, you need to download vosk's speech model:
 For example:
 ```
 #download and save 2 models (ru, en)
@@ -23,7 +48,7 @@ sh dl_models.sh
 ```
 You can find list of vosk pretrained models [here](https://alphacephei.com/vosk/models.html).
 
-Then, you can find all available lang-models in file src/models.js
+Then, you can find all available lang-models in file src/models.js -->
 
 
 # Example usage:
@@ -62,8 +87,8 @@ const Rec = new Recognizer({
 
 Add this to Electron's `main` process:
 ```
-const { app, BrowserWindow, ipcMain } = require('electron')
-const {speechSaverHandler} = require('electron-vosk-speech/src/utils')
+const { app, BrowserWindow } = require('electron')
+const {speechSaverHandler, connect2Vosk } = require('electron-vosk-speech/src/utils')
 
 const win = new BrowserWindow({
     width: 800,
@@ -73,10 +98,11 @@ const win = new BrowserWindow({
     }
 })
 
-// than add this handler to your 'will-download' event
-const projectPath = app.getAppPath()
-win.webContents.session.on('will-download', function(...rest){
-	speechSaverHandler(projectPath, ...rest)
+// then add this handler to your 'will-download' event
+connect2Vosk(win.webContents, () => {
+    win.webContents.session.on('will-download', function voskSpeechSaver(...rest){
+        speechSaverHandler(app.getAppPath(), ...rest) // for new version
+    })
 })
 ```
 Enjoy!

@@ -2,6 +2,16 @@
 // const env = require('dotenv').config()
 const spawn = require('await-spawn')
 const models = require('./models')
+const { NlpManager } = require('node-nlp');
+
+async function getEntities(text, lang){
+  const manager = new NlpManager({ languages: ['ru'], ner: { ducklingUrl: 'http://0.0.0.0:8000/parse' } })
+  const result = await manager.process(text)
+  return result
+//   console.log(JSON.stringify(result, null, 2))
+}
+
+// console.log(env)
 
 function getModelPath(key){
     try {
