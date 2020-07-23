@@ -9,6 +9,7 @@ function Recognizer({
 	onSpeechStart = () => console.log('voice_start'),
 	onSpeechEnd = () => console.log('voice_stop'),
 	onSpeechRecognized = res => console.log('onSpeechRecognized', res),
+	onStartRecognize = () => console.log('onRecognizeStart'),
 	onAllStart = () => console.log('onAllStart'),
 	onAllStop = () => console.log('onAllStop'),
 	options = {}
@@ -69,6 +70,7 @@ function Recognizer({
 		}
 
 		const speechPrepare = blob => {
+			onStartRecognize()
 			let reader = new FileReader()
 			reader.onload = async function() {
 				try{
