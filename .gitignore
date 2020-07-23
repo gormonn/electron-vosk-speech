@@ -1,4 +1,5 @@
 # vosk media files and models
+duckling/
 src/vosk/models/**
 src/vosk/media/**
 *.wav
