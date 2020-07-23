@@ -99,9 +99,9 @@ const win = new BrowserWindow({
 })
 
 // then add this handler to your 'will-download' event
-connect2Vosk(win.webContents, () => {
-    win.webContents.session.on('will-download', function voskSpeechSaver(...rest){
-        speechSaverHandler(app.getAppPath(), ...rest) // for new version
+connect2Vosk(win.webContents, (webContents, ws) => {
+    webContents.session.on('will-download', function voskSpeechSaver(...rest){
+      speechSaverHandler(app.getAppPath(), ws, ...rest) // for new version
     })
 })
 ```
