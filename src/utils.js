@@ -43,26 +43,27 @@ const unzipResults = string => {
 const isCorrectFilename = fileName =>
     fileName === SPEECH_NAME_DEFAULT
 
-const setMetadataCallback = (err) => {
-    if (err) console.error("Error writing metadata", err)
-    else console.log("Data written")
+// const setMetadataCallback = (err) => {
+//     const ffmetadata = require("ffmetadata")
+//     if (err) console.error("Error writing metadata", err)
+//     else console.log("Data written")
 
-    ffmetadata.read(savePath, function(err, data) {
-        if (err) console.error("ffmetadata Error reading metadata", err)
-        else console.log('ffmetadata', data)
-        // console.log('need to put:', transcription)
-    })
-}
-/**
- * title - is a transcript
- * comment - is a confidence
- * @param {*} savePath 
- * @param {*} param1 
- */
-const setMetadata = (savePath, [title, comment], cb = setMetadataCallback) => {
-    const ffmetadata = require("ffmetadata")
-    ffmetadata.write(savePath, {title, comment}, cb)
-}
+//     ffmetadata.read(savePath, function(err, data) {
+//         if (err) console.error("ffmetadata Error reading metadata", err)
+//         else console.log('ffmetadata', data)
+//         // console.log('need to put:', transcription)
+//     })
+// }
+// /**
+//  * title - is a transcript
+//  * comment - is a confidence
+//  * @param {*} savePath 
+//  * @param {*} param1 
+//  */
+// const setMetadata = (savePath, [title, comment], cb = setMetadataCallback) => {
+//     const ffmetadata = require("ffmetadata")
+//     ffmetadata.write(savePath, {title, comment}, cb)
+// }
 
 function speechSaverHandler(projectPath, ws, e, item){
     const fs = require('fs')
