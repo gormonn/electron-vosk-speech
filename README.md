@@ -1,7 +1,5 @@
 # Electron-vosk-speech
-Lightweight Speech Recognition Library for Electron. Based on nodejs-speech-kiosk-usercase and vosk-api.
-
-Requirements: Python 3.8
+Lightweight Speech Recognition Library for Electron. Based on [nodejs-speech-kiosk-usercase](https://www.npmjs.com/package/nodejs-speech-kiosk-usercase) and [vosk-api](https://github.com/alphacep/vosk-api).
 
 1. Install:
 
