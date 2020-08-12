@@ -69,7 +69,8 @@ function speechSaverHandler(projectPath, ws, e, item){
     const fs = require('fs')
     const fileName = item.getFilename()
     if(isCorrectFilename(fileName)){
-        const savePath = `${projectPath + SPEECH_SAVE_PATH + fileName}.wav`
+        // const savePath = `${projectPath + SPEECH_SAVE_PATH + fileName}.wav`
+        const savePath = `${projectPath + SPEECH_SAVE_PATH + fileName}.ogg`
         if(savePath){
             item.setSavePath(savePath)
             item.once('done', (event, state) => {

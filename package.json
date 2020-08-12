@@ -26,6 +26,7 @@
   },
   "homepage": "https://github.com/gormonn/electron-vosk-speech#readme",
   "dependencies": {
+    "fs-sync": "^1.0.6",
     "hark": "^1.2.3",
     "inline-worker": "^1.1.0",
     "opus-recorder": "^8.0.3",

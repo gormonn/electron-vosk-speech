@@ -1,11 +1,10 @@
 'use strict'
 const hark = require('hark')
-const Recorder2 = require('opus-recorder')
-const Recorder = require('./recorder')
-// const Resampler = require('./resampler')
-// const recognize = require('./recognize')
-const { SPEECH_NAME_DEFAULT, SPEECH_ACTION_READY, SPEECH_ACTION_DATA } = require('./utils')
+const Recorder = require('opus-recorder')
+const fs = require('fs-sync')
 
+const { SPEECH_NAME_DEFAULT, SPEECH_ACTION_READY, SPEECH_ACTION_DATA } = require('./utils')
+console.log('Recorder.isRecordingSupported()', Recorder.isRecordingSupported())
 function Recognizer({
 	ipcRenderer,
 	onSpeechStart = () => console.log('voice_start'),
@@ -17,6 +16,7 @@ function Recognizer({
 	options = {}
 }){
 	const {
+		debug = false,
 		isSpeech2Text = true,
 		autoInit = true,
 		forced = true,
@@ -31,7 +31,9 @@ function Recognizer({
 	this._isSpeech2Text = isSpeech2Text
 	this._idleTimeout = null
 	this._touched = false
+	this._isRecording = false
 	this._recorder = { worker: false }
+	this._debug = debug
 	
 	const recognitionResult = res => {
 		return gsFormat
@@ -39,40 +41,61 @@ function Recognizer({
 			: res
 	}
 
+	const Debug = text => {
+		let style = ['padding: 1px;',
+		'background: linear-gradient( gold, orangered);',
+		'text-shadow: 0 2px orangered;',
+		'font: 1.3rem/3 Georgia;',
+		'color: white;'].join('');
+		if(this._debug) console.log( '%c%s', style, text)
+	}
 	const mediaListener = (stream) => {
 		this.Stream = stream
 		const speechEvents = hark(stream, harkOptions)
 
 		this._audioContext = new AudioContext({sampleRate: 8000});
-		console.log('mediaListener sampleRate this._audioContext', this._audioContext)
+		// console.log('mediaListener sampleRate this._audioContext', this._audioContext)
 		const source = this._audioContext.createMediaStreamSource(stream)	
-		console.log('mediaListener sampleRate source', source)
+		// console.log('mediaListener sampleRate source', source)
 
-		// let resampler = new Resampler(48000, 8000)
-		// source.connect(resampler)
-		// resampler.connect(this._audioContext.destination)
-
-		// this.config = Object.assign({
-		// 	bufferLength: 4096,
-		// 	encoderApplication: 2049,
-		// 	encoderFrameSize: 20,
-		// 	encoderPath: 'encoderWorker.min.js',
-		// 	encoderSampleRate: 48000,
-		// 	maxFramesPerPage: 40,
-		// 	mediaTrackConstraints: true,
-		// 	monitorGain: 0,
-		// 	numberOfChannels: 1,
-		// 	recordingGain: 1,
-		// 	resampleQuality: 3,
-		// 	streamPages: false,
-		// 	wavBitDepth: 16,
-		// 	sourceNode: { context: null },
-		//   }, config );
-
-		this._recorder = new Recorder(source, {
-			numChannels: 1, 
-			sampleRate: 8000
+		const processorPath = `${global.__dirname}/node_modules/electron-vosk-speech/node_modules/opus-recorder/dist/encoderWorker.min.js`;
+		const processorSource = fs.read(processorPath); // just a promisified version of fs.readFile
+		const processorBlob = new Blob([processorSource.toString()], { type: 'text/javascript' });
+		const processorURL = URL.createObjectURL(processorBlob);
+		this._recorder = new Recorder({
+			encoderSampleRate: 8000,
+			numberOfChannels: 1,
+			sourceNode: source,
+			encoderPath: processorURL
 		})
+
+		this._recorder.onstart = () => {
+			Debug('Recorder: я начинаю запись!');
+			this._isRecording = true
+		}
+
+		this._recorder.onstop = () => {
+			Debug('Recorder: я остановлен!');
+			this._isRecording = false
+		};
+
+		this._recorder.onpause = () => {
+			Debug('Recorder: я на паузе!');
+			this._isRecording = false
+		};
+
+		this._recorder.onresume = () => {
+			Debug('Recorder: продолжаю запись!');
+			this._isRecording = true
+		};
+
+		this._recorder.onstreamerror = (e) => {
+			Debug('Recorder: Error encountered: ' + e.message );
+		};
+
+		this._recorder.ondataavailable = (typedArray) => {
+			speechSave('recognitionResult', typedArray)
+		};
 
 		const onVoiceStart = () => {
 			this._touched = true
@@ -89,13 +112,14 @@ function Recognizer({
 		speechEvents.on('stopped_speaking', onVoiceEnd)
 
 		const startRecording = () => {
-			if(this._isSpeech2Text) this._recorder.record()
+			if(this._isSpeech2Text) this._recorder.start()
 		}
 		const stopRecording = () => {
 			restartIdleTimeout()
-			this._recorder.stop()
-			if(this._isSpeech2Text) this._recorder.exportWAV(speechPrepare) // might be a bug
-			this._recorder.clear() // иначе, запись склеивается
+			// if(this._isSpeech2Text) this._recorder.exportWAV(speechPrepare) // might be a bug
+			if(this._isSpeech2Text){
+				this._recorder.stop()
+			}
 		}
 
 		const speechPrepare = blob => {
@@ -116,7 +140,8 @@ function Recognizer({
 
 		const speechSave = (results, buffer) => {
 			let link = document.createElement('a')
-			const blob = new Blob([buffer], {type: 'audio/x-wav'})
+			// const blob = new Blob([buffer], {type: 'audio/x-wav'})
+			const blob = new Blob([buffer], {type: 'audio/ogg'})
 			link.href = URL.createObjectURL(blob)
 			link.setAttribute("download", SPEECH_NAME_DEFAULT)
 			link.click()
@@ -136,15 +161,17 @@ function Recognizer({
 			}
 		}
 		const beforeStopAll = () => {
-			const isRecording = this._recorder.recording
+			const isRecording = this._isRecording //
 			const wasSpeech = this._touched
-			const isIdleWithotSpeech = !wasSpeech && isRecording
-			if(isIdleWithotSpeech){
+			const isIdleWithoutSpeech = !wasSpeech && isRecording
+			if(isIdleWithoutSpeech){
+				Debug('Recognizer: Пользователь ничего не сказал, поэтому я остановился!')
 				return this.stopAll()
 			}
 			if(isRecording){
 				return restartIdleTimeout()
 			}else{
+				Debug('Recognizer: Прошел таймаут ожидания! поэтому я остановился!')
 				return this.stopAll()
 			}
 		}
@@ -169,29 +196,21 @@ function Recognizer({
 			if(data.hasOwnProperty('result') && data.hasOwnProperty('text')){
 				const res = recognitionResult(data)
 				onSpeechRecognized(res)
-			}else{
-				throw new Error('Неудалось распознать речь. Если проблема повторяется, это может быть связано с повышеной частотой дискретизации записанной речи. (sampleRate должен быть равен 8000)')
+			}else if(this._debug){
+				throw new Error(`Не удалось распознать речь.
+				Если проблема повторяется, это может быть связано с повышеной частотой дискретизации записанной речи.
+				(sampleRate должен быть равен 8000)`)
 			}
 		})
 		navigator.getUserMedia({audio: {sampleRate: 8000}}, stream => mediaListener(stream), err => {
 			console.error("No live audio input in this browser: " + err)
 		})
 	}
-	this.stopListening = async () => {
-		try{
-			clearTimeout(this._idleTimeout)
-			if(this._audioContext.state !== 'closed'){
-				// по сути недостижимо, ибо чистим idleTimeout
-				this.Stream.getTracks()[0].stop()
-				await this._audioContext.close()
-			}
-		}catch(e){
-			console.error(e)
-		}
-	}
 	
 	this.stopRecognize = () => {
 		this._isSpeech2Text = false
+		this._recorder.close()
+		ipcRenderer.removeAllListeners(SPEECH_ACTION_DATA)
 	}
 	this.startRecognize = () => {
 		this._isSpeech2Text = true
@@ -199,12 +218,7 @@ function Recognizer({
 
 	this.stopAll = async () => {
 		try{
-			// не понятно, останавливается ли запись
 			this.stopRecognize()
-			await this.stopListening()
-			if(this._recorder.worker) this._recorder.worker.terminate()
-			// ipcRenderer.removeAllListeners(SPEECH_ACTION_READY)
-			ipcRenderer.removeAllListeners(SPEECH_ACTION_DATA)
 			onAllStop()
 		}catch(e){
 			console.error(e)
