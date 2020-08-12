@@ -1,6 +1,8 @@
 'use strict'
 const hark = require('hark')
+const Recorder2 = require('opus-recorder')
 const Recorder = require('./recorder')
+// const Resampler = require('./resampler')
 // const recognize = require('./recognize')
 const { SPEECH_NAME_DEFAULT, SPEECH_ACTION_READY, SPEECH_ACTION_DATA } = require('./utils')
 
@@ -42,8 +44,35 @@ function Recognizer({
 		const speechEvents = hark(stream, harkOptions)
 
 		this._audioContext = new AudioContext({sampleRate: 8000});
-		const source = this._audioContext.createMediaStreamSource(stream)		
-		this._recorder = new Recorder(source, {numChannels: 1})
+		console.log('mediaListener sampleRate this._audioContext', this._audioContext)
+		const source = this._audioContext.createMediaStreamSource(stream)	
+		console.log('mediaListener sampleRate source', source)
+
+		// let resampler = new Resampler(48000, 8000)
+		// source.connect(resampler)
+		// resampler.connect(this._audioContext.destination)
+
+		// this.config = Object.assign({
+		// 	bufferLength: 4096,
+		// 	encoderApplication: 2049,
+		// 	encoderFrameSize: 20,
+		// 	encoderPath: 'encoderWorker.min.js',
+		// 	encoderSampleRate: 48000,
+		// 	maxFramesPerPage: 40,
+		// 	mediaTrackConstraints: true,
+		// 	monitorGain: 0,
+		// 	numberOfChannels: 1,
+		// 	recordingGain: 1,
+		// 	resampleQuality: 3,
+		// 	streamPages: false,
+		// 	wavBitDepth: 16,
+		// 	sourceNode: { context: null },
+		//   }, config );
+
+		this._recorder = new Recorder(source, {
+			numChannels: 1, 
+			sampleRate: 8000
+		})
 
 		const onVoiceStart = () => {
 			this._touched = true
@@ -140,9 +169,11 @@ function Recognizer({
 			if(data.hasOwnProperty('result') && data.hasOwnProperty('text')){
 				const res = recognitionResult(data)
 				onSpeechRecognized(res)
+			}else{
+				throw new Error('Неудалось распознать речь. Если проблема повторяется, это может быть связано с повышеной частотой дискретизации записанной речи. (sampleRate должен быть равен 8000)')
 			}
 		})
-		navigator.getUserMedia({audio: true}, stream => mediaListener(stream), err => {
+		navigator.getUserMedia({audio: {sampleRate: 8000}}, stream => mediaListener(stream), err => {
 			console.error("No live audio input in this browser: " + err)
 		})
 	}

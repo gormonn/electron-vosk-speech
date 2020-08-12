@@ -1,5 +1,6 @@
 //https://github.com/mattdiamond/Recorderjs
 const InlineWorker = require('inline-worker')
+const Resampler = require('./resampler')
 
 class Recorder {
     constructor(source, cfg = {
@@ -13,8 +14,14 @@ class Recorder {
         }
         this.recording = false
         // Object.assign(this.config, cfg);
-        this.config = cfg
+        this.config = cfg;
         this.context = source.context;
+        // this.config = Object.assign(this.context, cfg);
+
+        const {sampleRate, numChannels, bufferLen} = this.config
+        this.resampler = new Resampler(this.context.sampleRate, sampleRate, numChannels, bufferLen);
+
+        console.log('Worker sampleRate this.context', this.context)
         this.node = (this.context.createScriptProcessor ||
         this.context.createJavaScriptNode).call(this.context,
             this.config.bufferLen, this.config.numChannels, this.config.numChannels);
@@ -24,7 +31,9 @@ class Recorder {
 
             var buffer = [];
             for (var channel = 0; channel < this.config.numChannels; channel++) {
-                buffer.push(e.inputBuffer.getChannelData(channel));
+                let newBuffer = e.inputBuffer.getChannelData(channel)
+                let resampled = this.resampler.resampler(newBuffer)
+                buffer.push(resampled);
             }
             this.worker.postMessage({
                 command: 'record',
@@ -64,6 +73,7 @@ class Recorder {
 
             function init(config) {
                 sampleRate = config.sampleRate;
+                console.log('Worker sampleRate', sampleRate)
                 numChannels = config.numChannels;
                 initBuffers();
             }
@@ -197,6 +207,7 @@ class Recorder {
             command: 'init',
             config: {
                 sampleRate: this.context.sampleRate,
+                // sampleRate: this.config.sampleRate,
                 numChannels: this.config.numChannels
             }
         });

@@ -62,13 +62,13 @@ const Rec = new Recognizer({
 	onSpeechStart: () => console.log('ГОВОРИТ!'), // fires on speech started
 	onSpeechEnd: () => console.log('ЗАМОЛЧАЛ!'), // fires on speech ended
 	options: {
-		isSpeech2Text = true,
-		autoInit = true,
-		forced = true, // forced start recording
-		idleDelay = 5000,
-		languageCode = 'ru',
-		harkOptions = {},
-		gsFormat = false // if true, returns result in GoogleSpeech format
+		isSpeech2Text: true,
+		autoInit: true,
+		forced: true, // forced start recording
+		idleDelay: 5000,
+		languageCode: 'ru',
+		harkOptions: {},
+		gsFormat: false // if true, returns result in GoogleSpeech format
 		// for backward compatibility with solutions based on GoogleSpeech
 	}
 })

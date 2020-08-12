@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 from vosk import Model, KaldiRecognizer, SetLogLevel
 import sys

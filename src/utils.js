@@ -93,6 +93,42 @@ function speechSaverHandler(projectPath, ws, e, item){
     }
 }
 
+// function connect2Vosk(webContents, voskSpeechSaver){
+//     const {exec} = require('child_process')
+//     exec('npm run start-vosk-server', (err, stdout, stderr) => {
+//         if (err) {
+//             if(err.code === 125){
+//                 console.log('vosk-server is already stated!')
+//             }else{
+//                 console.error(`npm run start-vosk-server error: ${err}`)
+//                 return
+//             }
+//         }else{
+//             console.log('vosk-server was started!')
+//         }
+//         const websocket = require('ws')
+//         let ws = new websocket('ws://0.0.0.0:2700/asr/ru/')
+//         ws.on('open', function open() {
+//             console.log('VOSK-API: Waiting to response...')
+//             voskSpeechSaver(webContents, ws)
+//         })
+//         ws.on('message', function incoming(data) {
+//             console.log('VOSK: ws-message', SPEECH_ACTION_DATA, data)
+//             webContents.send(SPEECH_ACTION_DATA, data)
+//         })
+//         ws.on('close', function close() {
+//             console.log('VOSK: ws-close')
+//             // harcode:
+//             // т.к. сервер закрывает соединение, обходим пока так:
+//             webContents.session.removeAllListeners('will-download')
+//             connect2Vosk(webContents, voskSpeechSaver)
+//         })
+//         ws.on('error', function(e) {
+//             console.error("VOSK: ws-error: " + e.toString());
+//         })
+//     })
+// }
+
 function connect2Vosk(webContents, voskSpeechSaver){
     const websocket = require('ws')
     let ws = new websocket('ws://0.0.0.0:2700/asr/ru/')
@@ -101,16 +137,18 @@ function connect2Vosk(webContents, voskSpeechSaver){
         voskSpeechSaver(webContents, ws)
     })
     ws.on('message', function incoming(data) {
+        console.log('VOSK: ws-message', SPEECH_ACTION_DATA, data)
         webContents.send(SPEECH_ACTION_DATA, data)
     })
     ws.on('close', function close() {
+        console.log('VOSK: ws-close')
         // harcode:
         // т.к. сервер закрывает соединение, обходим пока так:
         webContents.session.removeAllListeners('will-download')
         connect2Vosk(webContents, voskSpeechSaver)
     })
     ws.on('error', function(e) {
-        console.error("WS Error: " + e.toString());
+        console.error("VOSK: ws-error: " + e.toString());
     })
 }
 

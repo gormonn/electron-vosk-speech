@@ -1,7 +1,7 @@
 {
   "license": "ISC",
   "name": "electron-vosk-speech",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Lightweight Speech Recognition Library for Electron. Based on [nodejs-speech-kiosk-usercase](https://www.npmjs.com/package/nodejs-speech-kiosk-usercase) and [vosk-api](https://github.com/alphacep/vosk-api).",
   "main": "src/index.js",
   "keywords": [
@@ -10,6 +10,9 @@
     "speech",
     "electron"
   ],
+  "scripts": {
+    "start-vosk-server": "docker run -p 2700:2700 -d alphacep/kaldi-ru:latest"
+  },
   "contributors": [
     "Dmitriy Aleksandrovich Chernukho <wfuzerbar@gmail.com> (https://github.com/gormonn)"
   ],
@@ -25,6 +28,7 @@
   "dependencies": {
     "hark": "^1.2.3",
     "inline-worker": "^1.1.0",
+    "opus-recorder": "^8.0.3",
     "ws": "^7.3.1"
   }
 }
