@@ -1,5 +1,7 @@
 'use-strict'
 
+const { exit } = require('process')
+
 const SPEECH_NAME_DEFAULT = 'speech'
 const SPEECH_ACTION_READY = 'SPEECH_ACTION_READY'
 const SPEECH_ACTION_DATA = 'SPEECH_ACTION_DATA'
@@ -92,7 +94,38 @@ function speechSaverHandler(projectPath, ws, e, item){
         e.preventDefault()
     }
 }
-
+// docker run -d -p 2700:2700 alphacep/kaldi-ru:latest
+function startVoskNConnect(webContents, voskSpeechSaver){
+    const {exec} = require('child_process')
+    exec('docker run -d -p 2700:2700 alphacep/kaldi-ru:latest', (err, stdout, stderr) => {
+        // console.log('startVoskNConnect',{err,stdout,stderr})
+        // connect2Vosk(webContents, voskSpeechSaver)
+        const errorMessage = err => {
+            console.log('Vosk server starting error!', err)
+            throw new Error('Vosk server starting error!', err)
+        }
+        const errorHandler = err => {
+            if(err.toString().substr('port is already allocated')){
+                console.log('Vosk server was already started!')
+                connect2Vosk(webContents, voskSpeechSaver)
+            }else{
+                errorMessage(err)
+                process.abort()
+            }
+        }
+        
+        if(err){
+            errorHandler(err)
+        }
+        if(stderr){
+            errorHandler(`stderr: ${stderr}`)
+        }
+        if(stdout){
+            console.log('Vosk server was started!', stdout)
+            connect2Vosk(webContents, voskSpeechSaver)
+        }
+    })
+}
 function connect2Vosk(webContents, voskSpeechSaver){
     const websocket = require('ws')
     let ws = new websocket('ws://0.0.0.0:2700/asr/ru/')
@@ -130,5 +163,6 @@ module.exports = {
     // voskSocket,
     connect2Vosk,
     zipResults, unzipResults, isCorrectFilename, speechSaverHandler,
+    startVoskNConnect,
     SPEECH_NAME_DEFAULT, SPEECH_ACTION_READY, SPEECH_ACTION_DATA
 }

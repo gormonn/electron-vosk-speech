@@ -64,6 +64,7 @@ class Recorder {
 
             function init(config) {
                 sampleRate = config.sampleRate;
+                console.log('sampleRate', sampleRate)
                 numChannels = config.numChannels;
                 initBuffers();
             }

@@ -8,7 +8,13 @@ Lightweight Speech Recognition Library for Electron. Based on [nodejs-speech-kio
 Then you need to install [docker](https://docs.docker.com/get-docker/).
 
 Run vosk-api local server:
-`sudo docker run -p 2700:2700 alphacep/kaldi-ru:latest`
+`sudo docker run -d -p 2700:2700 alphacep/kaldi-ru:latest`
+
+To clear docker containers:
+```
+docker stop $(docker ps -aq)
+docker rm $(docker ps -aq)
+```
 
 
 <!-- To install python, read [this](https://realpython.com/installing-python/) guide.
