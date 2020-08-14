@@ -94,39 +94,59 @@ function speechSaverHandler(projectPath, ws, e, item){
         e.preventDefault()
     }
 }
+
+function connect2Vosk(webContents, voskSpeechSaver, props){
+    const {autostart = true} = props
+    if(autostart){
+        startVoskNConnect(webContents, voskSpeechSaver, props)
+    }else{
+        voskWsConnect(webContents, voskSpeechSaver)
+    }
+}
+
 // docker run -d -p 2700:2700 alphacep/kaldi-ru:latest
-function startVoskNConnect(webContents, voskSpeechSaver){
+function startVoskNConnect(webContents, voskSpeechSaver, props){
     const {exec} = require('child_process')
-    exec('docker run -d -p 2700:2700 alphacep/kaldi-ru:latest', (err, stdout, stderr) => {
-        // console.log('startVoskNConnect',{err,stdout,stderr})
-        // connect2Vosk(webContents, voskSpeechSaver)
-        const errorMessage = err => {
-            console.log('Vosk server starting error!', err)
-            throw new Error('Vosk server starting error!', err)
-        }
+    const {sudo = false} = props
+    const containerName = 'vosk'
+    const su = sudo ? 'sudo ' : ''
+    const startServer = `${su}docker run --name "${containerName}" -d -p 2700:2700 alphacep/kaldi-ru:latest`
+    const restartServer = `${su}docker restart ${containerName}`
+    const duplicateWarning = `The container name "/${containerName}" is already in use by container`
+    // const comma = restart ? restartServer : startServer
+
+    const dockerHandler = (err, stdout, stderr) => {
         const errorHandler = err => {
-            if(err.toString().substr('port is already allocated')){
-                console.log('Vosk server was already started!')
-                connect2Vosk(webContents, voskSpeechSaver)
+            const isDuplicateWarning = err.substr(duplicateWarning)
+            if(isDuplicateWarning){
+                console.log('Vosk server restarting...', err)
+                console.log('Vosk-exec:', restartServer)
+                exec(restartServer, dockerHandler)
+                // if(this.started) connect2Vosk(webContents, voskSpeechSaver)
+                // this.started = true
             }else{
-                errorMessage(err)
+                console.log('Vosk server starting error!', err)
                 process.abort()
+                throw new Error('Vosk server starting error!', err)
             }
         }
         
-        if(err){
-            errorHandler(err)
-        }
+        // if(err){
+        //     errorHandler(`Vosk-err: ${err.toString()}`)
+        // }
         if(stderr){
-            errorHandler(`stderr: ${stderr}`)
+            errorHandler(`Vosk-stderr: ${stderr.toString()}`)
         }
         if(stdout){
-            console.log('Vosk server was started!', stdout)
+            console.log('Vosk-stdout server was started!', stdout)
             connect2Vosk(webContents, voskSpeechSaver)
         }
-    })
+    }
+
+    console.log('Vosk-exec:', startServer)
+    exec(startServer, dockerHandler)
 }
-function connect2Vosk(webContents, voskSpeechSaver){
+function voskWsConnect(webContents, voskSpeechSaver){
     const websocket = require('ws')
     let ws = new websocket('ws://0.0.0.0:2700/asr/ru/')
     ws.on('open', function open() {
@@ -140,7 +160,7 @@ function connect2Vosk(webContents, voskSpeechSaver){
         // harcode:
         // т.к. сервер закрывает соединение, обходим пока так:
         webContents.session.removeAllListeners('will-download')
-        connect2Vosk(webContents, voskSpeechSaver)
+        voskWsConnect(webContents, voskSpeechSaver)
     })
     ws.on('error', function(e) {
         console.error("WS Error: " + e.toString());

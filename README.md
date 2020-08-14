@@ -9,7 +9,10 @@ Then you need to install [docker](https://docs.docker.com/get-docker/).
 
 Run vosk-api local server:
 `sudo docker run -d -p 2700:2700 alphacep/kaldi-ru:latest`
+`docker run -d -p 2700:2700 alphacep/kaldi-ru:latest`
 
+To restart:
+`docker restart alphacep/kaldi-ru:latest`
 To clear docker containers:
 ```
 docker stop $(docker ps -aq)
@@ -102,11 +105,17 @@ const win = new BrowserWindow({
     }
 })
 
+// default values
+const props = {
+	sudo: false, // with sudo you can get an error now, so you need to configure docker to use without sudo, or other...
+	autostart: true // to autostart docker server
+}
+
 // then add this handler to your 'will-download' event
 connect2Vosk(win.webContents, (webContents, ws) => {
     webContents.session.on('will-download', function voskSpeechSaver(...rest){
       speechSaverHandler(app.getAppPath(), ws, ...rest) // for new version
     })
-})
+}, props)
 ```
 Enjoy!
