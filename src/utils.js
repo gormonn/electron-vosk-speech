@@ -95,7 +95,7 @@ function speechSaverHandler(projectPath, ws, e, item){
     }
 }
 
-function connect2Vosk(webContents, voskSpeechSaver, props){
+function connect2Vosk(webContents, voskSpeechSaver, props = {}){
     const {autostart = true} = props
     if(autostart){
         startVoskNConnect(webContents, voskSpeechSaver, props)
@@ -105,7 +105,7 @@ function connect2Vosk(webContents, voskSpeechSaver, props){
 }
 
 // docker run -d -p 2700:2700 alphacep/kaldi-ru:latest
-function startVoskNConnect(webContents, voskSpeechSaver, props){
+function startVoskNConnect(webContents, voskSpeechSaver, props = {}){
     const {exec} = require('child_process')
     const {sudo = false} = props
     const containerName = 'vosk'
