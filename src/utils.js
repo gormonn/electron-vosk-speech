@@ -139,7 +139,7 @@ function startVoskNConnect(webContents, voskSpeechSaver, props = {}){
         }
         if(stdout){
             console.log('Vosk-stdout server was started!', stdout)
-            connect2Vosk(webContents, voskSpeechSaver)
+            voskWsConnect(webContents, voskSpeechSaver)
         }
     }
 
@@ -163,7 +163,7 @@ function voskWsConnect(webContents, voskSpeechSaver){
         voskWsConnect(webContents, voskSpeechSaver)
     })
     ws.on('error', function(e) {
-        console.error("WS Error: " + e.toString());
+        console.error("VOSK-client WS Error: " + e.toString());
     })
 }
 
