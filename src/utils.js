@@ -107,12 +107,12 @@ function connect2Vosk(webContents, voskSpeechSaver, props = {}){
 // docker run -d -p 2700:2700 alphacep/kaldi-ru:latest
 function startVoskNConnect(webContents, voskSpeechSaver, props = {}){
     const {exec} = require('child_process')
-    const {sudo = false} = props
-    const containerName = 'vosk'
-    const su = sudo ? 'sudo ' : ''
-    const startServer = `${su}docker run --name "${containerName}" -d -p 2700:2700 alphacep/kaldi-ru:latest`
-    const restartServer = `${su}docker restart ${containerName}`
-    const duplicateWarning = `The container name "/${containerName}" is already in use by container`
+    const {sudo = false, docker = {}} = props
+    const {container = 'alphacep/kaldi-ru:latest', port = '2700', name = 'vosk'} = docker
+    const su = sudo ? 'sudo' : ''
+    const startServer = `${su} docker run --name "${name}" -d -p ${port}:${port} ${container}`
+    const restartServer = `${su} docker restart ${name}`
+    const duplicateWarning = `The container name "/${name}" is already in use by container`
     // const comma = restart ? restartServer : startServer
 
     const dockerHandler = (err, stdout, stderr) => {

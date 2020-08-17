@@ -108,7 +108,12 @@ const win = new BrowserWindow({
 // default values
 const props = {
 	sudo: false, // with sudo you can get an error now, so you need to configure docker to use without sudo, or other...
-	autostart: true // to autostart docker server
+	autostart: true, // to autostart docker server
+	docker: {
+		name: 'vosk',
+		container: 'alphacep/kaldi-ru:latest',
+		port: '2700'
+	}
 }
 
 // then add this handler to your 'will-download' event

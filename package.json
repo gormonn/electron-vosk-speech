@@ -1,7 +1,7 @@
 {
   "license": "ISC",
   "name": "electron-vosk-speech",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Lightweight Speech Recognition Library for Electron. Based on [nodejs-speech-kiosk-usercase](https://www.npmjs.com/package/nodejs-speech-kiosk-usercase) and [vosk-api](https://github.com/alphacep/vosk-api).",
   "main": "src/index.js",
   "keywords": [
