@@ -13,7 +13,10 @@ Run vosk-api local server:
 
 To restart:
 `docker restart alphacep/kaldi-ru:latest`
-To clear docker containers:
+To stop and clear vosk container:
+`docker stop vosk`
+
+To clear all docker containers:
 ```
 docker stop $(docker ps -aq)
 docker rm $(docker ps -aq)
@@ -111,7 +114,8 @@ const props = {
 	autostart: true, // to autostart docker server
 	docker: {
 		name: 'vosk',
-		container: 'alphacep/kaldi-ru:latest',
+		container: 'alphacep/kaldi-ru',
+		version: 'latest',
 		port: '2700'
 	}
 }

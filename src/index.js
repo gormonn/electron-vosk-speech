@@ -32,7 +32,7 @@ function Recognizer({
 	this._recorder = { worker: false }
 	
 	const recognitionResult = res => {
-		// console.log('recognitionResult', res)
+		console.log('1111 recognitionResult', res)
 		return gsFormat
 			? {results:[{alternatives:[{transcript: res.text /*,confidence: 0.7914224863052368*/}],languageCode}]}
 			: res
