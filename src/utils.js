@@ -68,8 +68,202 @@ const isCorrectFilename = fileName =>
 //     ffmetadata.write(savePath, {title, comment}, cb)
 // }
 
+class VoskConnector{
+    constructor(props){
+        const {
+            autostart = true,
+            sudo = false,
+            check = true,
+            docker = {},
+            config = {}
+        } = props
+        this.autostart = autostart
+        this.sudo = sudo
+        this.check = check
+
+        const {
+            image = 'alphacep/kaldi-ru',
+            version = 'latest',
+            port = '2700',
+            name = 'vosk'
+        } = docker
+        this.docker = {image, version, port, name}
+
+        const {
+            word_list = false,
+            sample_rate = 8000
+        } = config
+
+        this.config = this.createConfig(word_list, sample_rate)
+        this.checkContainerHandler = this.checkContainerHandler.bind(this)
+        this.startServerHandler = this.startServerHandler.bind(this)
+        this.connect = this.connect.bind(this)
+        this.speechSaverHandler = this.speechSaverHandler.bind(this)
+        
+    }
+    init(webContents, voskSpeechSaver){
+        this.webContents = webContents
+        this.voskSpeechSaver = voskSpeechSaver
+        const {image, version, name} = this.docker
+        this.imageName = `${image}:${version}`
+        this.duplicateWarning = `The container name "/${name}" is already in use by container`
+        this.commands = this.createCommands()
+
+        console.log('vosk init', this.autostart)
+        if(this.autostart){
+            this.startServer()
+        }else{
+            this.connect()
+        }
+    }
+    speechSaverHandler(projectPath, ws, e, item){
+        // console.log('!!!', cfg)
+        const fs = require('fs')
+        const fileName = item.getFilename()
+        if(isCorrectFilename(fileName)){
+            const savePath = `${projectPath + SPEECH_SAVE_PATH + fileName}.wav`
+            if(savePath){
+                item.setSavePath(savePath)
+                item.once('done', (event, state) => {
+                    if (state === 'completed') {
+                        // webContents.send(SPEECH_ACTION_READY, savePath)
+                        ws.send(this.config)
+                        const readStream = fs.createReadStream(savePath)
+                        readStream.on('data', function (chunk) {
+                            ws.send(chunk)
+                        })
+                        readStream.on('end', function () {
+                            ws.send('{"eof" : 1}')
+                        })
+                    } else {
+                        console.log(`Download failed: ${state}`)
+                    }
+                })
+            }
+        }else{
+            console.log("A speech file won't save")
+            e.preventDefault()
+        }
+    }
+    connect(){
+        const websocket = require('ws')
+        const {webContents, voskSpeechSaver, connect} = this
+        const ws = new websocket('ws://0.0.0.0:2700/asr/ru/')
+        const spam = false
+        ws.on('open', function open() {
+            spam && console.log('VOSK-API: Waiting to response...')
+            voskSpeechSaver(ws)
+        })
+        ws.on('message', function incoming(data) {
+            webContents.send(SPEECH_ACTION_DATA, data)
+        })
+        ws.on('close', function close() {
+            spam && console.log('Vosk close connection!')
+            // harcode:
+            // т.к. сервер закрывает соединение, обходим пока так:
+            webContents.session.removeAllListeners('will-download')
+            connect()
+        })
+        ws.on('error', function(e) {
+            spam && console.error("VOSK-client WS Error: " + e.toString());
+        })
+        // console.log('voskWsConnect ready')
+        // webContents.session.on(SPEECH_ACTION_PREPARE_VOCABULARY, data => {
+        //     console.log(SPEECH_ACTION_PREPARE_VOCABULARY, data)
+        // })
+    }
+    startServer(){
+        const {exec} = require('child_process')
+        const {checkContainer, startServer} = this.commands
+        if(this.check){
+            exec(checkContainer, this.checkContainerHandler)
+        }else{
+            console.log('Vosk-exec:', startServer)
+            exec(startServer, this.startServerHandler)
+        }
+    }
+    createConfig(word_list, sample_rate){
+        const isNeedToConfigure = sample_rate || word_list
+        let cfg = {}
+        if(isNeedToConfigure){
+            cfg = {config: {}}
+            if(word_list) cfg.config.word_list = word_list
+            if(sample_rate) cfg.config.sample_rate = sample_rate
+        }
+        return JSON.stringify(cfg)
+    }
+    createCommands(){
+        const {port, name} = this.docker
+        const su = this.sudo ? 'sudo ' : ''
+        const command = (string) => {
+            return `${su}${string}`
+        }
+        const checkContainer = command(`docker ps -f name=${name} -a --format '{{.Image}}'`)
+        const startServer = command(`docker run --name "${name}" -d -p ${port}:${port} ${this.imageName}`)
+        const restartServer = command(`docker restart ${name}`)
+        const containerId = command(`docker ps -f name=${name} -aq`)
+        const containerStop = command(`docker stop ${name}`)
+        const containerRm = command(`docker rm ${name}`)
+        return {
+            checkContainer,
+            startServer,
+            restartServer,
+            containerId,
+            containerStop,
+            containerRm
+        }
+    }
+    joinCommands(...rest){
+        return [...rest].join(' && ')
+    }
+    checkContainerHandler(err, stdout, stderr){
+        const {exec} = require('child_process')
+        const { imageName } = this
+        const {restartServer} = this.commands
+        const startedContainerImageName = stdout.length ? stdout.trim() : false
+        if(startedContainerImageName){
+            if(startedContainerImageName.localeCompare(imageName) == 0){
+                console.log('Vosk-stdout server was already started!', stdout)
+                // restart and connect
+                exec(restartServer, this.startServerHandler)
+            }else{
+                throw new Error(`Vosk-checker: Ошибка! контейнеры отличаются! Запущен: ${startedContainerImageName} В настройках указан: ${imageName}`)
+                process.abort()
+            }
+        }else{
+            this.check = false
+            this.startServer()
+        }
+    }
+    startServerHandler(err, stdout, stderr){
+        const {restartServer} = this.commands
+        const errorHandler = err => {
+            const isDuplicateWarning = err.substr(this.duplicateWarning)
+            if(isDuplicateWarning){
+                console.log('Vosk server restarting...', err)
+                console.log('Vosk-exec:', restartServer)
+                exec(restartServer, this.startServerHandler)
+            }else{
+                console.log('Vosk server starting error!', err)
+                process.abort()
+                throw new Error('Vosk server starting error!', err)
+            }
+        }
+        // if(err){a
+        //     errorHandler(`Vosk-err: ${err.toString()}`)
+        // }
+        if(stderr){
+            errorHandler(`Vosk-stderr: ${stderr.toString()}`)
+        }
+        if(stdout){
+            console.log('Vosk-stdout server was started!', stdout)
+            this.connect()
+        }
+    }
+}
+
 function speechSaverHandler(projectPath, ws, cfg, e, item){
-    console.log('!!!', cfg)
+    // console.log('!!!', cfg)
     const fs = require('fs')
     const fileName = item.getFilename()
     if(isCorrectFilename(fileName)){
@@ -101,15 +295,15 @@ function speechSaverHandler(projectPath, ws, cfg, e, item){
 function connect2Vosk(webContents, voskSpeechSaver, props = {}){
     const {autostart = true} = props
     if(autostart){
-        startVoskNConnect(webContents, voskSpeechSaver, props)
+        startVoskNConnect(webContents, cfg, voskSpeechSaver, props)
     }else{
-        voskWsConnect(webContents, voskSpeechSaver)
+        voskWsConnect(webContents, cfg, voskSpeechSaver)
     }
 }
 
 
 // docker run -d -p 2700:2700 alphacep/kaldi-ru:latest
-function startVoskNConnect(webContents, voskSpeechSaver, props = {}){
+function startVoskNConnect(webContents, cfg, voskSpeechSaver, props = {}){
     const {exec} = require('child_process')
     const {sudo = false, docker = {}, check = true} = props
     const {image = 'alphacep/kaldi-ru', version = 'latest', port = '2700', name = 'vosk'} = docker
@@ -164,7 +358,7 @@ function startVoskNConnect(webContents, voskSpeechSaver, props = {}){
                 // console.log('Vosk-checker 3 startedContainerImageName')
                 if(startedContainerImageName.localeCompare(imageName) == 0){
                     console.log('Vosk-stdout server was already started!', stdout)
-                    voskWsConnect(webContents, voskSpeechSaver)
+                    voskWsConnect(webContents, cfg, voskSpeechSaver)
                 }else{
                     // console.log(`Ошибка! Запущен: ${startedContainerImageName} В настройках указан: ${imageName}`)
                     throw new Error(`Vosk-checker: Ошибка! контейнеры отличаются! Запущен: ${startedContainerImageName} В настройках указан: ${imageName}`)
@@ -172,7 +366,7 @@ function startVoskNConnect(webContents, voskSpeechSaver, props = {}){
                 }
             }else{
                 // console.log('Vosk-checker 5 startVoskNConnect')
-                startVoskNConnect(webContents, voskSpeechSaver, {...props, check: false})
+                startVoskNConnect(webContents, cfg, voskSpeechSaver, {...props, check: false})
             }
         })
     }else{
@@ -200,7 +394,7 @@ function startVoskNConnect(webContents, voskSpeechSaver, props = {}){
             }
             if(stdout){
                 console.log('Vosk-stdout server was started!', stdout)
-                voskWsConnect(webContents, voskSpeechSaver)
+                voskWsConnect(webContents, cfg, voskSpeechSaver)
             }
         }
 
@@ -208,16 +402,18 @@ function startVoskNConnect(webContents, voskSpeechSaver, props = {}){
         exec(startServer, dockerHandler)
     }
 }
-function voskWsConnect(webContents, voskSpeechSaver){
+function voskWsConnect(webContents, config = {}, voskSpeechSaver){
     const websocket = require('ws')
     let ws = new websocket('ws://0.0.0.0:2700/asr/ru/')
+    const {word_list = false, sample_rate = false} = config
     ws.on('open', function open() {
         console.log('VOSK-API: Waiting to response...')
-        const cfg = {
-            config: {
-                word_list: 'мтс мегафон',
-                sample_rate: 8000
-            }
+        const isNeedToConfigure = sample_rate || word_list
+        let cfg = {}
+        if(isNeedToConfigure){
+            cfg = {config: {}}
+            if(word_list) cfg.config.word_list = word_list
+            if(sample_rate) cfg.config.sample_rate = sample_rate
         }
         voskSpeechSaver(webContents, ws, JSON.stringify(cfg))
     })
@@ -257,6 +453,6 @@ module.exports = {
     // voskSocket,
     connect2Vosk,
     zipResults, unzipResults, isCorrectFilename, speechSaverHandler,
-    startVoskNConnect,
+    startVoskNConnect, VoskConnector,
     SPEECH_NAME_DEFAULT, SPEECH_ACTION_READY, SPEECH_ACTION_DATA, SPEECH_ACTION_PREPARE_VOCABULARY
 }
