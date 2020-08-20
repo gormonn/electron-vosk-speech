@@ -109,7 +109,7 @@ const win = new BrowserWindow({
 })
 
 // default values
-const props = {
+<!-- const props = {
 	sudo: false, // with sudo you can get an error now, so you need to configure docker to use without sudo, or other...
 	autostart: true, // to autostart docker server
 	docker: {
@@ -118,13 +118,25 @@ const props = {
 		version: 'latest',
 		port: '2700'
 	}
-}
+} -->
 
-// then add this handler to your 'will-download' event
-connect2Vosk(win.webContents, (webContents, ws) => {
-    webContents.session.on('will-download', function voskSpeechSaver(...rest){
-      speechSaverHandler(app.getAppPath(), ws, ...rest) // for new version
-    })
-}, props)
+const {VoskConnector} = require('electron-vosk-speech/src/utils')
+const vosk = new VoskConnector({
+	// sudo: true,
+	autostart: 1,
+	sudo: 0,
+	docker: {
+		image: 'neurocity/vosk-small-ru', //todo добавить ошибку, или убивание процесса, если данные имена не совпадают
+		version: '0.0.2'
+	},
+	config: {
+		word_list: words
+	}
+})
+vosk.init(mainWindow.webContents, (ws) => {
+	mainWindow.webContents.session.on('will-download', function voskSpeechSaver(...rest){
+		vosk.speechSaverHandler(app.getAppPath(), ws, ...rest) // for new version
+	})
+})
 ```
 Enjoy!
