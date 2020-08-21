@@ -72,12 +72,18 @@ class VoskConnector{
     constructor(props){
         const {
             autostart = true,
+            autoreplace = true, // автоматически останавливает и удаляет блокирующие запуск сервера контейнеры
+            autorestart = true,
+            debugWs = false,
             sudo = false,
             check = true,
             docker = {},
             config = {}
         } = props
         this.autostart = autostart
+        this.autoreplace = autoreplace
+        this.autorestart = autorestart
+        this.debugWs = debugWs
         this.sudo = sudo
         this.check = check
 
@@ -107,7 +113,7 @@ class VoskConnector{
         const {image, version, name} = this.docker
         this.imageName = `${image}:${version}`
         this.duplicateWarning = `The container name "/${name}" is already in use by container`
-        this.commands = this.createCommands()
+        this.createCommands()
 
         console.log('vosk init', this.autostart)
         if(this.autostart){
@@ -147,25 +153,24 @@ class VoskConnector{
     }
     connect(){
         const websocket = require('ws')
-        const {webContents, voskSpeechSaver, connect} = this
+        const {webContents, voskSpeechSaver, connect, debugWs} = this
         const ws = new websocket('ws://0.0.0.0:2700/asr/ru/')
-        const spam = false
         ws.on('open', function open() {
-            spam && console.log('VOSK-API: Waiting to response...')
+            debugWs && console.log('VOSK-API: Waiting to response...')
             voskSpeechSaver(ws)
         })
         ws.on('message', function incoming(data) {
             webContents.send(SPEECH_ACTION_DATA, data)
         })
         ws.on('close', function close() {
-            spam && console.log('Vosk close connection!')
+            debugWs && console.log('Vosk close connection!')
             // harcode:
             // т.к. сервер закрывает соединение, обходим пока так:
             webContents.session.removeAllListeners('will-download')
             connect()
         })
         ws.on('error', function(e) {
-            spam && console.error("VOSK-client WS Error: " + e.toString());
+            debugWs && console.error("VOSK-client WS Error: " + e.toString());
         })
         // console.log('voskWsConnect ready')
         // webContents.session.on(SPEECH_ACTION_PREPARE_VOCABULARY, data => {
@@ -173,13 +178,11 @@ class VoskConnector{
         // })
     }
     startServer(){
-        const {exec} = require('child_process')
         const {checkContainer, startServer} = this.commands
         if(this.check){
-            exec(checkContainer, this.checkContainerHandler)
+            this.exec(checkContainer, this.checkContainerHandler)
         }else{
-            console.log('Vosk-exec:', startServer)
-            exec(startServer, this.startServerHandler)
+            this.exec(startServer, this.startServerHandler)
         }
     }
     createConfig(word_list, sample_rate){
@@ -200,37 +203,66 @@ class VoskConnector{
         }
         const checkContainer = command(`docker ps -f name=${name} -a --format '{{.Image}}'`)
         const startServer = command(`docker run --name "${name}" -d -p ${port}:${port} ${this.imageName}`)
+        // docker run --name "vosk" -d -p 2700:2700 neurocity/vosk-small-ru:0.0.2
         const restartServer = command(`docker restart ${name}`)
         const containerId = command(`docker ps -f name=${name} -aq`)
         const containerStop = command(`docker stop ${name}`)
         const containerRm = command(`docker rm ${name}`)
-        return {
+        const stopRmContainer = this.joinCommands(containerStop,containerRm)
+        this.commands = {
             checkContainer,
             startServer,
             restartServer,
             containerId,
             containerStop,
-            containerRm
+            containerRm,
+            stopRmContainer
+        }
+        this.commands.messages = {
+            [checkContainer]: 'Проверяю блокирующие контейнеры',
+            [startServer]: 'Запускаю контейнер',
+            [restartServer]: 'Перезапускаю контейнер',
+            [stopRmContainer]: 'Останавливаю и удаляю блокирующие контейнеры'
         }
     }
-    joinCommands(...rest){
-        return [...rest].join(' && ')
+    joinCommands(){
+        return [...arguments].join(' && ')
+    }
+    exec(command, handler){
+        const {exec} = require('child_process')
+        const msg = this.commands.messages.hasOwnProperty(command)
+            ? this.commands.messages[command]
+            : command
+        console.log('Vosk-exec:', msg)
+        exec(command, handler)
     }
     checkContainerHandler(err, stdout, stderr){
-        const {exec} = require('child_process')
         const { imageName } = this
-        const {restartServer} = this.commands
+        const {restartServer,stopRmContainer} = this.commands
         const startedContainerImageName = stdout.length ? stdout.trim() : false
-        if(startedContainerImageName){
-            if(startedContainerImageName.localeCompare(imageName) == 0){
-                console.log('Vosk-stdout server was already started!', stdout)
-                // restart and connect
-                exec(restartServer, this.startServerHandler)
+        const handleIt = (condition, exec, msg) => {
+            if(condition){
+                console.log(msg, stdout)
+                exec()
             }else{
-                const err = `Vosk-checker: Ошибка! контейнеры отличаются! Запущен: ${startedContainerImageName} В настройках указан: ${imageName}`
-                console.error(err)
+                console.error(msg, stdout)
                 process.exit(1)
-                throw new Error(err)
+            }
+        }
+        if(startedContainerImageName){
+            const isStartedContainerEqualConfigs = startedContainerImageName.localeCompare(imageName) == 0
+            if(isStartedContainerEqualConfigs){
+                handleIt(
+                    this.autorestart,
+                    ()=>this.exec(restartServer, this.startServerHandler),
+                    `Vosk-checker: Данный контейнер (${imageName}) уже запушен!`
+                )
+            }else{
+                handleIt(
+                    this.autoreplace,
+                    ()=>this.exec(stopRmContainer, this.startServerHandler),
+                    `Vosk-checker: Контейнеры отличаются! Запущен: ${startedContainerImageName} В настройках указан: ${imageName}`
+                )
             }
         }else{
             this.check = false
@@ -238,16 +270,14 @@ class VoskConnector{
         }
     }
     startServerHandler(err, stdout, stderr){
+        console.log('Vosk::startServerHandler')
         const {restartServer} = this.commands
         const errorHandler = err => {
             const isDuplicateWarning = err.substr(this.duplicateWarning)
             if(isDuplicateWarning){
                 console.log('Vosk server restarting...', err)
-                console.log('Vosk-exec:', restartServer)
-                exec(restartServer, this.startServerHandler)
+                this.exec(restartServer, this.startServerHandler)
             }else{
-                // console.log('Vosk server starting error!', err)
-                // process.abort()
                 const err1 = `Vosk server starting error: ${err}`
                 console.error(err1)
                 process.exit(1)
